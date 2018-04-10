@@ -15,57 +15,86 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 
+/* FUNCTIONS ---------------------------------------------------------------- */
+
 void page_fault_handler( struct page_table *pt, int page )
 {
-	printf("page fault on page #%d\n",page);
+    printf("\nPage fault on page #%d\n",page);
+
+    // Simple handler
+    // (only if nframes >= npages)
+    if (page_table_get_nframes(pt) >= page_table_get_npages(pt))
+    {
+	page_table_set_entry(pt, page, page, PROT_READ|PROT_WRITE);
+    }
+    else
+    {
 	exit(1);
+    }
 }
+
+void usage(int status)
+{
+    printf("USAGE: ./virtmem [PAGES] [FRAMES] [rand|fifo|lru] [sort|scan|focus]\n");
+    printf("   [PAGES]   - number of pages\n");
+    printf("   [FRAMES]  - number of frames\n");
+    exit(status);
+}
+
+/* MAIN --------------------------------------------------------------------- */
 
 int main( int argc, char *argv[] )
 {
-	if(argc!=5) {
-		printf("use: virtmem <npages> <nframes> <rand|fifo|lru|custom> <sort|scan|focus>\n");
-		return 1;
-	}
+    if(argc!=5)
+    {
+	// wrong number of arguments
+	usage(1);
+    }
 
-	int npages = atoi(argv[1]);
-	int nframes = atoi(argv[2]);
-	const char *program = argv[4];
+    int npages = atoi(argv[1]);
+    int nframes = atoi(argv[2]);
+    const char *program = argv[4];
 
-	struct disk *disk = disk_open("myvirtualdisk",npages);
-	if(!disk) {
-		fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
-		return 1;
-	}
+    struct disk *disk = disk_open("myvirtualdisk",npages);
+    if(!disk)
+    {
+	fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
+	return 1;
+    }
 
 
-	struct page_table *pt = page_table_create( npages, nframes, page_fault_handler );
-	if(!pt) {
-		fprintf(stderr,"couldn't create page table: %s\n",strerror(errno));
-		return 1;
-	}
+    struct page_table *pt = page_table_create( npages, nframes, page_fault_handler );
+    if(!pt)
+    {
+	fprintf(stderr,"couldn't create page table: %s\n",strerror(errno));
+	return 1;
+    }
 
-	char *virtmem = page_table_get_virtmem(pt);
+    char *virtmem = page_table_get_virtmem(pt);
 
-	char *physmem = page_table_get_physmem(pt);
+    char *physmem = page_table_get_physmem(pt);
 
-	if(!strcmp(program,"sort")) {
-		sort_program(virtmem,npages*PAGE_SIZE);
+    if(!strcmp(program,"sort"))
+    {
+	sort_program(virtmem,npages*PAGE_SIZE);
+    }
+    else if(!strcmp(program,"scan")) 
+    {
+	scan_program(virtmem,npages*PAGE_SIZE);
+    }
+    else if(!strcmp(program,"focus")) 
+    {
+	focus_program(virtmem,npages*PAGE_SIZE);
+    }
+    else 
+    {
+	fprintf(stderr,"unknown program: %s\n",argv[3]);
+	return 1;
+    }
 
-	} else if(!strcmp(program,"scan")) {
-		scan_program(virtmem,npages*PAGE_SIZE);
+    page_table_delete(pt);
+    disk_close(disk);
 
-	} else if(!strcmp(program,"focus")) {
-		focus_program(virtmem,npages*PAGE_SIZE);
-
-	} else {
-		fprintf(stderr,"unknown program: %s\n",argv[3]);
-		return 1;
-	}
-
-	page_table_delete(pt);
-	disk_close(disk);
-
-	return 0;
+    return 0;
 }
 
