@@ -1,20 +1,26 @@
+# Makefile --------------------------------------------------------------------
+C=/afs/nd.edu/user14/csesoft/new/bin/gcc
+CFLAGS=-Wall -std=c99 -g
+LD=/afs/nd.edu/user14/csesoft/new/bin/gcc
+LDFLAGS=
+# -----------------------------------------------------------------------------
 
 all: virtmem
 
 virtmem: main.o page_table.o disk.o program.o
-	gcc main.o page_table.o disk.o program.o -o virtmem
+	$(LD) $^ $(LDFLAGS) -o virtmem
 
 main.o: main.c
-	gcc -Wall -g -c main.c -o main.o
+	$(C) $(CFLAGS) -c main.c -o main.o
 
 page_table.o: page_table.c
-	gcc -Wall -g -c page_table.c -o page_table.o
+	$(C) $(CFLAGS) -c page_table.c -o page_table.o
 
 disk.o: disk.c
-	gcc -Wall -g -c disk.c -o disk.o
+	$(C) $(CFLAGS) -c disk.c -o disk.o
 
 program.o: program.c
-	gcc -Wall -g -c program.c -o program.o
+	$(C) $(CFLAGS) -c program.c -o program.o
 
 
 clean:
