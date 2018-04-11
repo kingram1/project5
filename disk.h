@@ -7,6 +7,10 @@ Make all of your changes to main.c instead.
 #ifndef DISK_H
 #define DISK_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define BLOCK_SIZE 4096
 
 /*
@@ -44,5 +48,8 @@ Close the virtual disk.
 
 void disk_close( struct disk *d );
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif
