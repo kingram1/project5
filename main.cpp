@@ -15,7 +15,7 @@ how to use the page table and disk interfaces.
 #include <string.h>
 #include <errno.h>
 #include <iostream>
-#include <queue>
+#include <deque>
 
 using namespace std;
 
@@ -25,7 +25,7 @@ int npages;
 int nframes;
 int policy;
 
-queue<int> frame_table;
+deque<int> frame_table;
 struct disk *disk;
 
 char *physmem;
@@ -69,13 +69,15 @@ void page_fault_handler( struct page_table *pt, int page )
 	    if (policy == 0)
 	    {
 		// Random eviction policy
-		evict = rand() % nframes;
+		evict = rand() % size;
+		evict = frame_table[evict];
+		frame_table.erase(frame_table.begin()+evict);
 	    }
 	    else
 	    {
 		// Pull from priority queue
 		evict = frame_table.front(); // Gets page of frame to evict
-		frame_table.pop();
+		frame_table.pop_front();
 	    }
 
 	    // Check bits of frame to evict
@@ -87,7 +89,7 @@ void page_fault_handler( struct page_table *pt, int page )
 	    }
 
 	    printf("Set page table entry\n");
-	    frame_table.push(page);
+	    frame_table.push_back(page);
 
 	    printf("Read from memory\n");
 	    disk_read(disk, page, &physmem[(frame)*BLOCK_SIZE]);
@@ -98,7 +100,7 @@ void page_fault_handler( struct page_table *pt, int page )
 	{
 	    // Map to empty frame
 	    frame = nframes - frame_table.size() - 1;
-	    frame_table.push(page);
+	    frame_table.push_back(page);
 
 	    // Read from disk
 	    printf("Read from memory\n");
