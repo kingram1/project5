@@ -14,6 +14,21 @@ how to use the page table and disk interfaces.
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <iostream>
+#include <queue>
+
+using namespace std;
+
+/* GLOBALS ------------------------------------------------------------------ */
+
+int npages;
+int nframes;
+int policy;
+
+queue<int> frame_table;
+struct disk *disk;
+
+char *physmem;
 
 /* FUNCTIONS ---------------------------------------------------------------- */
 
@@ -21,16 +36,70 @@ void page_fault_handler( struct page_table *pt, int page )
 {
     printf("\nPage fault on page #%d\n",page);
 
-    // Simple handler
-    // (only if nframes >= npages)
-    if (page_table_get_nframes(pt) >= page_table_get_npages(pt))
+    int bits = 0;
+    int frame = 0;
+    
+    page_table_get_entry(pt, page, &frame, &bits);
+
+
+    printf("FRAME = %d, PAGE = %d\n", frame, page);
+
+    // Check bits
+    if (bits & PROT_READ)
     {
-	page_table_set_entry(pt, page, page, PROT_READ|PROT_WRITE);
+	// Add PROT_WRITE bit
+	//exit(1);
+	
+	// Determine if page is in physical memory
+	if (frame >= 0 && frame < nframes)
+	{
+	    page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
+	    printf("Update bits\n");
+	}
+	else
+	{
+	    // Conflict Miss
+	    printf("BOOM: FRAME NUMBER= %d\n", frame);
+	}
     }
     else
     {
-	exit(1);
+	// Add PROT_READ bit
+	int size = frame_table.size();
+	int evict;
+	if (size == page_table_get_nframes(pt))
+	{
+	    // Determine eviction policy
+	    if (policy == 0)
+	    {
+		// Random eviction policy
+		evict = rand() % nframes;
+	    }
+	    else
+	    {
+		// Pull from priority queue
+		evict = frame_table.front(); // Gets page of frame to evict
+		frame_table.pop();
+	    }
+
+	    // Check bits of frame to evict
+	    exit(1);
+	}
+	else
+	{
+	    // Map to empty frame
+	    frame = nframes - frame_table.size() - 1;
+	    frame_table.push(page);
+
+	    // Read from disk
+	    printf("Read from memory\n");
+	    disk_read(disk, page, &physmem[(frame)*BLOCK_SIZE]);
+
+	    printf("Set page table entry\n");
+	    page_table_set_entry(pt, page, frame, PROT_READ);
+	}
     }
+
 }
 
 void usage(int status)
@@ -51,11 +120,11 @@ int main( int argc, char *argv[] )
 	usage(1);
     }
 
-    int npages = atoi(argv[1]);
-    int nframes = atoi(argv[2]);
+    npages = atoi(argv[1]);
+    nframes = atoi(argv[2]);
     const char *program = argv[4];
 
-    struct disk *disk = disk_open("myvirtualdisk",npages);
+    disk = disk_open("myvirtualdisk", npages); // nblocks = npages
     if(!disk)
     {
 	fprintf(stderr,"couldn't create virtual disk: %s\n",strerror(errno));
@@ -70,9 +139,28 @@ int main( int argc, char *argv[] )
 	return 1;
     }
 
+    // Determine the policy
+    if (strcmp(argv[3], "rand") == 0)
+    {
+	policy = 0;
+    }
+    else if (strcmp(argv[3], "fifo") == 0)
+    {
+	policy = 1;
+    }
+    else if (strcmp(argv[3], "lru") == 0)
+    {
+	policy = 2;
+    }
+    else
+    {
+	fprintf(stderr, "ERROR: Invalid eviction policy\n");
+	usage(1);
+    }
+
     char *virtmem = page_table_get_virtmem(pt);
 
-    char *physmem = page_table_get_physmem(pt);
+    physmem = page_table_get_physmem(pt);
 
     if(!strcmp(program,"sort"))
     {
