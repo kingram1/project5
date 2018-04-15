@@ -41,14 +41,10 @@ void page_fault_handler( struct page_table *pt, int page )
     
     page_table_get_entry(pt, page, &frame, &bits);
 
-
-    printf("FRAME = %d, PAGE = %d\n", frame, page);
-
     // Check bits
     if (bits & PROT_READ)
     {
 	// Add PROT_WRITE bit
-	//exit(1);
 	
 	// Determine if page is in physical memory
 	if (frame >= 0 && frame < nframes)
@@ -83,7 +79,20 @@ void page_fault_handler( struct page_table *pt, int page )
 	    }
 
 	    // Check bits of frame to evict
-	    exit(1);
+	    page_table_get_entry(pt, evict, &frame, &bits);
+	    if (bits & PROT_WRITE)
+	    {
+		printf("Write frame %d to memory\n", frame);
+		disk_write(disk, evict, &physmem[(frame)*BLOCK_SIZE]);
+	    }
+
+	    printf("Set page table entry\n");
+	    frame_table.push(page);
+
+	    printf("Read from memory\n");
+	    disk_read(disk, page, &physmem[(frame)*BLOCK_SIZE]);
+	    
+	    page_table_set_entry(pt, page, frame, PROT_READ);
 	}
 	else
 	{
@@ -99,7 +108,7 @@ void page_fault_handler( struct page_table *pt, int page )
 	    page_table_set_entry(pt, page, frame, PROT_READ);
 	}
     }
-
+    printf("PAGE %d --> FRAME %d\n", page, frame);
 }
 
 void usage(int status)
