@@ -16,6 +16,7 @@ how to use the page table and disk interfaces.
 #include <errno.h>
 #include <iostream>
 #include <deque>
+#include <algorithm>
 
 using namespace std;
 
@@ -30,11 +31,19 @@ struct disk *disk;
 
 char *physmem;
 
+vector<int> page_evicts;
+
 /* FUNCTIONS ---------------------------------------------------------------- */
+
+bool compare_evicts(int p1, int p2)
+{
+    // Determines which of page1 or page2 has most evicts
+    return page_evicts[p1] < page_evicts[p2];
+}
 
 void page_fault_handler( struct page_table *pt, int page )
 {
-    printf("\nPage fault on page #%d\n",page);
+    // printf("\nPage fault on page #%d\n",page);
 
     int bits = 0;
     int frame = 0;
@@ -50,12 +59,11 @@ void page_fault_handler( struct page_table *pt, int page )
 	if (frame >= 0 && frame < nframes)
 	{
 	    page_table_set_entry(pt, page, frame, PROT_READ | PROT_WRITE);
-	    printf("Update bits\n");
+	    // printf("Update bits\n");
 	}
 	else
 	{
 	    // Conflict Miss
-	    printf("BOOM: FRAME NUMBER= %d\n", frame);
 	}
     }
     else
@@ -74,11 +82,19 @@ void page_fault_handler( struct page_table *pt, int page )
 		evict = frame_table[temp];
 		frame_table.erase(frame_table.begin()+temp);
 	    }
-	    else
+	    else if (policy == 1)
 	    {
 		// Pull from priority queue
 		evict = frame_table.front(); // Gets page of frame to evict
 		frame_table.pop_front();
+	    }
+	    else
+	    {
+		auto it = min_element(begin(frame_table), end(frame_table), compare_evicts);
+		int temp = distance(begin(frame_table), it);
+		evict = frame_table[temp];
+		frame_table.erase(frame_table.begin()+temp);
+		page_evicts[evict]++;
 	    }
 
 	    // Check bits of frame to evict
@@ -86,14 +102,14 @@ void page_fault_handler( struct page_table *pt, int page )
 	    page_table_set_entry(pt, evict, frame, 0);
 	    if (bits & PROT_WRITE)
 	    {
-		printf("Write frame %d to memory\n", frame);
+		// printf("Write frame %d to memory\n", frame);
 		disk_write(disk, evict, &physmem[(frame)*BLOCK_SIZE]);
 	    }
 
-	    printf("Set page table entry\n");
+	    // printf("Set page table entry\n");
 	    frame_table.push_back(page);
 
-	    printf("Read from memory\n");
+	    // printf("Read from memory\n");
 	    disk_read(disk, page, &physmem[(frame)*BLOCK_SIZE]);
 	    
 	    page_table_set_entry(pt, page, frame, PROT_READ);
@@ -105,19 +121,19 @@ void page_fault_handler( struct page_table *pt, int page )
 	    frame_table.push_back(page);
 
 	    // Read from disk
-	    printf("Read from memory\n");
+	    // printf("Read from memory\n");
 	    disk_read(disk, page, &physmem[(frame)*BLOCK_SIZE]);
 
-	    printf("Set page table entry\n");
+	    // printf("Set page table entry\n");
 	    page_table_set_entry(pt, page, frame, PROT_READ);
 	}
     }
-    printf("PAGE %d --> FRAME %d\n", page, frame);
+    // printf("PAGE %d --> FRAME %d\n", page, frame);
 }
 
 void usage(int status)
 {
-    printf("USAGE: ./virtmem [PAGES] [FRAMES] [rand|fifo|lru] [sort|scan|focus]\n");
+    printf("USAGE: ./virtmem [PAGES] [FRAMES] [rand|fifo|custom] [sort|scan|focus]\n");
     printf("   [PAGES]   - number of pages\n");
     printf("   [FRAMES]  - number of frames\n");
     exit(status);
@@ -136,6 +152,8 @@ int main( int argc, char *argv[] )
     npages = atoi(argv[1]);
     nframes = atoi(argv[2]);
     const char *program = argv[4];
+
+    page_evicts.resize(npages, 0);
 
     disk = disk_open("myvirtualdisk", npages); // nblocks = npages
     if(!disk)
@@ -161,7 +179,7 @@ int main( int argc, char *argv[] )
     {
 	policy = 1;
     }
-    else if (strcmp(argv[3], "lru") == 0)
+    else if (strcmp(argv[3], "custom") == 0)
     {
 	policy = 2;
     }
