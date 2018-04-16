@@ -156,9 +156,30 @@ int main( int argc, char *argv[] )
 	usage(1);
     }
 
+    // check npages
+    for (unsigned int i=0; i < strlen(argv[1]); i++) {
+        if (argv[1][i] < 48 || argv[1][i] > 57) {
+            usage(1);
+        }
+    }
     npages = atoi(argv[1]);
+
+    // check nframes
+    for (unsigned int i=0; i < strlen(argv[2]); i++) {
+        if (argv[2][i] < 48 || argv[2][i] > 57) {
+            usage(1);
+        }
+    }
     nframes = atoi(argv[2]);
-    const char *program = argv[4];
+
+    // check program arg
+    const char *program;
+    if (strcmp(argv[4], "sort") == 0 || strcmp(argv[4], "scan") == 0 || strcmp(argv[4], "focus") == 0) {
+        program = argv[4];
+    } else {
+        usage(1);
+    }
+
     nfaults = 0;
     nreads = 0;
     nwrites = 0;
