@@ -69,9 +69,10 @@ void page_fault_handler( struct page_table *pt, int page )
 	    if (policy == 0)
 	    {
 		// Random eviction policy
-		evict = rand() % size;
-		evict = frame_table[evict];
-		frame_table.erase(frame_table.begin()+evict);
+		int temp;
+		temp = rand() % nframes;
+		evict = frame_table[temp];
+		frame_table.erase(frame_table.begin()+temp);
 	    }
 	    else
 	    {
