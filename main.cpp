@@ -25,6 +25,9 @@ using namespace std;
 int npages;
 int nframes;
 int policy;
+int nfaults;
+int nreads;
+int nwrites;
 
 deque<int> frame_table;
 struct disk *disk;
@@ -44,6 +47,7 @@ bool compare_evicts(int p1, int p2)
 void page_fault_handler( struct page_table *pt, int page )
 {
     // printf("\nPage fault on page #%d\n",page);
+    nfaults++;
 
     int bits = 0;
     int frame = 0;
@@ -104,6 +108,7 @@ void page_fault_handler( struct page_table *pt, int page )
 	    {
 		// printf("Write frame %d to memory\n", frame);
 		disk_write(disk, evict, &physmem[(frame)*BLOCK_SIZE]);
+		nwrites++;
 	    }
 
 	    // printf("Set page table entry\n");
@@ -111,7 +116,8 @@ void page_fault_handler( struct page_table *pt, int page )
 
 	    // printf("Read from memory\n");
 	    disk_read(disk, page, &physmem[(frame)*BLOCK_SIZE]);
-	    
+	    nreads++;
+
 	    page_table_set_entry(pt, page, frame, PROT_READ);
 	}
 	else
@@ -123,6 +129,7 @@ void page_fault_handler( struct page_table *pt, int page )
 	    // Read from disk
 	    // printf("Read from memory\n");
 	    disk_read(disk, page, &physmem[(frame)*BLOCK_SIZE]);
+	    nreads++;
 
 	    // printf("Set page table entry\n");
 	    page_table_set_entry(pt, page, frame, PROT_READ);
@@ -152,6 +159,9 @@ int main( int argc, char *argv[] )
     npages = atoi(argv[1]);
     nframes = atoi(argv[2]);
     const char *program = argv[4];
+    nfaults = 0;
+    nreads = 0;
+    nwrites = 0;
 
     page_evicts.resize(npages, 0);
 
@@ -213,6 +223,8 @@ int main( int argc, char *argv[] )
 
     page_table_delete(pt);
     disk_close(disk);
+
+    printf("Page Faults = %d\nDisk Reads = %d\nDisk Writes = %d\n", nfaults, nreads, nwrites);
 
     return 0;
 }
