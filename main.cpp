@@ -82,6 +82,7 @@ void page_fault_handler( struct page_table *pt, int page )
 
 	    // Check bits of frame to evict
 	    page_table_get_entry(pt, evict, &frame, &bits);
+	    page_table_set_entry(pt, evict, frame, 0);
 	    if (bits & PROT_WRITE)
 	    {
 		printf("Write frame %d to memory\n", frame);
