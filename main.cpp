@@ -163,6 +163,9 @@ int main( int argc, char *argv[] )
         }
     }
     npages = atoi(argv[1]);
+    if (npages < 3) {
+	usage(1);
+    }
 
     // check nframes
     for (unsigned int i=0; i < strlen(argv[2]); i++) {
@@ -171,6 +174,9 @@ int main( int argc, char *argv[] )
         }
     }
     nframes = atoi(argv[2]);
+    if (npages < nframes || nframes < 3) {
+	usage(1);
+    }
 
     // check program arg
     const char *program;
